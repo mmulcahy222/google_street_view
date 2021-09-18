@@ -12,14 +12,37 @@
  var map_clicked = false;
 var data_records = [];
 var data_records_max_length = 2;
-var heading_value_element = document.getElementById('heading_value');
-var heading_bar_element = document.getElementById('heading_bar');
-var rainbow_bar_width = 500;
+
+// Converts from degrees to radians.
+function toRadians(degrees) {
+  return degrees * Math.PI / 180;
+};
+ 
+// Converts from radians to degrees.
+function toDegrees(radians) {
+  return radians * 180 / Math.PI;
+}
 
 
+function bearing(startLat, startLng, destLat, destLng){
+  startLat = toRadians(startLat);
+  startLng = toRadians(startLng);
+  destLat = toRadians(destLat);
+  destLng = toRadians(destLng);
+
+  y = Math.sin(destLng - startLng) * Math.cos(destLat);
+  x = Math.cos(startLat) * Math.sin(destLat) -
+        Math.sin(startLat) * Math.cos(destLat) * Math.cos(destLng - startLng);
+  brng = Math.atan2(y, x);
+  brng = toDegrees(brng);
+  return (brng + 360) % 360;
+}
+function center_map()
+{
+	map.setCenter(panorama.getLocation().latLng);
+}
  function initMap() {
- 	
-	lat_lng = {lat: 25.772632334716604, lng: -80.18955890235}; 
+	lat_lng = {lat: 40.626503, lng: -74.179512}; 
 	sv = new google.maps.StreetViewService();
 	panorama = new google.maps.StreetViewPanorama(document.getElementById('pano'));
 	// Set up the map.
@@ -37,8 +60,7 @@ var rainbow_bar_width = 500;
 	map.addListener('click', function(event) {
 		map_clicked = true;
 		sv.getPanorama({location: event.latLng, radius: 50}, process_data_by_map_click);
-		lat_lng = event.latLng;
-		center_map();
+		map.setCenter(event.latLng);
 	});
 	panorama.addListener("pano_changed", () => {
 		
@@ -52,11 +74,11 @@ var rainbow_bar_width = 500;
   			map_clicked = false;
   			return;	
   		}
-		// sv.getPanorama({location: panorama.getLocation().latLng, radius: 50}, process_data_by_map_click);
-		center_map();
+		sv.getPanorama({location: panorama.getLocation().latLng, radius: 50}, process_data_by_map_click);
+  		// center_map();
   	});
-	panorama.addListener("pov_changed", e => {
-		heading_change(panorama.getPov().heading);
+	panorama.addListener("pov_changed", () => {
+    	// console.log('pov');
   	});
 	keymap = {49:1,50:2,51:3,52:4,53:5,54:6,55:7,56:8,57:9,113:20,119:30,101:40,114:50,116:60};
 	document.getElementsByTagName("body")[0].addEventListener('keypress', function(e) {
@@ -76,79 +98,8 @@ var rainbow_bar_width = 500;
 			times_to_loop = 1;
 		}
 		sv.getPanorama({location: panorama.getPosition(), radius: 50}, position_changed_by_keypress);
-	},false);
-	document.getElementsByTagName("input_search").addEventListener('keypress', function(e) {
-		sv.getPanorama({location: event.latLng, radius: 50}, process_data_by_map_click);
-
 	});
 }
-
-
-
-
-
-
-
-// Converts from degrees to radians.
-function toRadians(degrees) {
-  return degrees * Math.PI / 180;
-};
- 
-// Converts from radians to degrees.
-function toDegrees(radians) {
-  return radians * 180 / Math.PI;
-}
-
-
-//controls the heading via rainbow bar
-var move_bar_event;
-document.getElementById("heading_hover").addEventListener("mousemove", move_bar_event => {
-	//500 is width
-	heading = Math.round((move_bar_event.offsetX/rainbow_bar_width)*360);
-	panorama.setPov({
-		heading: heading,
-		pitch: 0
-	});
-	heading_change(heading);
-},false);
-
-//PREVENT THE OTHER RAINBOW BAR MORE TO BE DONE TWICE UNNECESSARILY WHEN THE LEFT CSS ATTRIBUTE CHANGES!!!
-document.getElementById("heading_bar").addEventListener("mousemove",e=>{
-	e.stopPropagation();
-},false);
-
-
-function heading_change(heading)
-{
-	heading_value_element.innerHTML = get_direction(heading);
-	heading_bar_element.style.left = Math.round((heading/360)*rainbow_bar_width) + "px";
-}
-
-function bearing(startLat, startLng, destLat, destLng){
-  startLat = toRadians(startLat);
-  startLng = toRadians(startLng);
-  destLat = toRadians(destLat);
-  destLng = toRadians(destLng);
-
-  y = Math.sin(destLng - startLng) * Math.cos(destLat);
-  x = Math.cos(startLat) * Math.sin(destLat) -
-        Math.sin(startLat) * Math.cos(destLat) * Math.cos(destLng - startLng);
-  brng = Math.atan2(y, x);
-  brng = toDegrees(brng);
-  return (brng + 360) % 360;
-}
-function center_map()
-{
-	if(!lat_lng) lat_lng = panorama.getLocation().latLng;
-	map.setCenter(lat_lng);
-	if(marker) marker.setMap(null);
-	marker = new google.maps.Marker({
-		position: lat_lng,
-		map: map
-	});
-	lat_lng = panorama.getLocation().latLng;
-}
-
 function process_data_by_map_click(data, status) {
 	if (status === 'OK') {
 		data_records.push(data);
@@ -161,6 +112,11 @@ function process_data_by_map_click(data, status) {
 		// }
 		
 		console.log(data_records);
+		//marker = new google.maps.Marker({
+		//	position: data.location.latLng,
+		//	map: map,
+		//	title: data.location.description
+		//});
 		last_data = data_records[data_records.length - 2];
 		current_data = data_records[data_records.length - 1];
 		last_latitude = last_data.location.latLng.lat();
